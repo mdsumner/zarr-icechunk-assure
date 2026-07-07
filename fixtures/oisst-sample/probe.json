@@ -1,0 +1,59 @@
+{
+  "dataset": "NOAA OISST v2.1 AVHRR daily, 1981-09-01..1981-09-10",
+  "sources": { "file": "sources.parquet", "n": 10 },
+  "grid": {
+    "dim": [1440, 720],
+    "extent": [0.0, 360.0, -90.0, 90.0],
+    "crs": "OGC:CRS84",
+    "lat_stored_ascending": true,
+    "note": "GDAL classic-raster reads present north-up; stored order is lat ascending from -90"
+  },
+  "probe": {
+    "lon": 199.875,
+    "lat": -9.875,
+    "time_index": 0,
+    "ix": 799,
+    "iy_stored": 320,
+    "row_northup": 400,
+    "sst_packed": 2782,
+    "sst_unpacked": 27.82
+  },
+  "slice0": { "min": -1.8, "max": 33.74 },
+  "time": {
+    "n": 10,
+    "raw": [1339, 1340, 1341, 1342, 1343, 1344, 1345, 1346, 1347, 1348],
+    "units_correct": "days since 1978-01-01 12:00:00",
+    "calendar": "standard",
+    "decoded_first": "1981-09-01T12:00:00Z",
+    "decoded_last": "1981-09-10T12:00:00Z",
+    "defect": "units attribute absent in refs and in as-virtualized tag (blocklist gap, preserved deliberately); repaired in cf-repaired tag"
+  },
+  "variables": ["sst", "anom", "err", "ice"],
+  "array": {
+    "dtype": "int16",
+    "fill_value": -999,
+    "scale_factor": 0.01,
+    "add_offset": 0.0,
+    "shape": [10, 1, 720, 1440],
+    "chunks": [1, 1, 720, 1440],
+    "codecs_v2_filters": [
+      { "id": "shuffle", "elementsize": 2 },
+      { "id": "zlib", "level": 1 }
+    ],
+    "codecs_v3": ["bytes", "numcodecs.shuffle", "numcodecs.zlib"]
+  },
+  "tags": ["as-virtualized", "cf-repaired"],
+  "cells": {
+    "https": {
+      "ref_prefix": "https://www.ncei.noaa.gov/data/sea-surface-temperature-optimum-interpolation/v2.1/access/avhrr/",
+      "store_config": "http_store",
+      "credential": "HttpAccess"
+    },
+    "file": {
+      "ref_prefix": "file:///rdsi/PUBLIC/raad/data/www.ncei.noaa.gov/data/sea-surface-temperature-optimum-interpolation/v2.1/access/avhrr/",
+      "store_config": "local_filesystem_store",
+      "credential": "LocalFileSystemAccess",
+      "note": "machine-bound by construction: baked file:// refs are only valid where the /rdsi mirror exists"
+    }
+  }
+}
