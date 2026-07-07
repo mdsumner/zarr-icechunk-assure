@@ -17,3 +17,10 @@ skip_if_no_refs <- function() {
 read_zmeta <- function() {
   jsonlite::read_json(file.path(REFS, ".zmetadata"), simplifyVector = FALSE)$metadata
 }
+
+gdal_coherent <- function() {
+  isTRUE(gdalraster::gdal_version()[4] == vapour::vapour_gdal_version()[1] |>
+           sub(pattern = "GDAL ([^,]+),.*", replacement = "\\1", x = _))
+}
+skip_if_gdal_mixed <- function() testthat::skip_if_not(
+  gdal_coherent(), "mixed GDAL versions across R bindings")

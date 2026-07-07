@@ -1,0 +1,23 @@
+[project]
+name = "zarr-icechunk-assure"
+version = "0.1.0"
+description = "Icechunk repo recipe and read-suite for the OISST sample fixture"
+requires-python = ">=3.12"
+dependencies = [
+    "icechunk==2.1.0",
+    "zarr>=3.1,<4",
+    "numpy>=2",
+    "pyarrow>=17",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--strict-markers -p no:cacheprovider"
+markers = [
+    "network: fetches virtual chunks from NCEI",
+]

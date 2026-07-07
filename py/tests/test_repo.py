@@ -12,9 +12,15 @@ BUILD = pathlib.Path("build/oisst-sample")
 P     = json.loads((FIX / "probe.json").read_text())
 CELL  = "https"
 PREFIX = P["cells"][CELL]["ref_prefix"]
+CELLS = ["https", "s3"]          # or: [c for c in P["cells"] if (BUILD / f"repo-{c}").exists()]
 
 def _storage(path):
     return ic.local_filesystem_storage(str(path))
+
+@pytest.fixture(scope="session", params=CELLS)
+def cell(request):
+    return request.param
+
 
 @pytest.fixture(scope="session")
 def repo_path(tmp_path_factory):

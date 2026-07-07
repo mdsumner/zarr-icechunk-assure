@@ -1,5 +1,8 @@
 .Rproj.user
 build/
+__pycache__/
+*.py[cod]
+py/.venv/
 old/
 .Rhistory
 .RData

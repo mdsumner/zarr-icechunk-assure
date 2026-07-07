@@ -27,14 +27,34 @@ N        = P["sources"]["n"]
 NT, NZ, NY, NX = P["array"]["shape"]
 DIMS     = ("time", "zlev", "lat", "lon")
 
-store_cfg = {
-    "http_store": ic.http_store,
-    # FLAGGED: check signature -- root path arg or none?
-    "local_filesystem_store": lambda: ic.local_filesystem_store(
-        prefix.removeprefix("file://")),
-}[cellspec["store_config"]]()
-cred = getattr(ic.credentials, cellspec["credential"])
+# -- cell dispatch: contract strings -> icechunk objects ---------------------
+# Store configs and credentials are constructed per cell. Both tables take
+# the cellspec uniformly so a new cell is a new row, not a refactor.
+STORES = {
+    "http_store": lambda spec: ic.http_store(),
+    "local_filesystem_store": lambda spec: ic.local_filesystem_store(
+        spec["ref_prefix"].removeprefix("file://")),
+    # FLAGGED: check s3_store signature -- region kwarg assumed
+    "s3_store": lambda spec: ic.s3_store(region=spec["region"]),
+}
+CREDS = {
+    # sentinels are attributes; anonymous s3 is a constructor call --
+    # the tables make both uniform behind a zero-arg call
+    "HttpAccess": lambda: ic.credentials.HttpAccess,
+    "LocalFileSystemAccess": lambda: ic.credentials.LocalFileSystemAccess,
+    # FLAGGED: check exact spelling -- s3_anonymous_credentials assumed
+    "s3_anonymous": lambda: ic.s3_anonymous_credentials(),
+}
 
+if cellspec["store_config"] not in STORES:
+    sys.exit(f"no store factory for {cellspec['store_config']!r}; "
+             f"known: {', '.join(STORES)}")
+if cellspec["credential"] not in CREDS:
+    sys.exit(f"no credential factory for {cellspec['credential']!r}; "
+             f"known: {', '.join(CREDS)}")
+
+store_cfg = STORES[cellspec["store_config"]](cellspec)
+cred      = CREDS[cellspec["credential"]]()
 config = ic.RepositoryConfig.default()
 config.set_virtual_chunk_container(ic.VirtualChunkContainer(prefix, store_cfg))
 creds = ic.containers_credentials({prefix: cred})

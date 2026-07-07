@@ -8,6 +8,8 @@ The sample dataset is ten days of NOAA OISST v2.1 (September 1981). Small, but r
 (packed int16, scale/offset, shuffle+zlib chunks, CF time, virtual byte
 references into a remote archive).
 
+This is an evolving project, there's a lot of LLM assistance. Stay tuned, reach out to me if you are interested. 
+
 ## Why
 
 Virtualization datasets can easily have multiple authorities, at its simplest
@@ -24,6 +26,20 @@ This repo is for:
    tools need: metadata reads that need no credentials, value reads from
    a remote container, unauthorized reads, and we retain 
    a metadata defect repaired as a versioned commit. 
+
+## Contract
+
+There is a core that doesn't live here but is developing in blocklist/aad-filelist and in GDAL. 
+
+Once we assume that core contract (a generic, managed, and growing store of array data 
+byte-refs) the goal here is to project it through different types, which varies by when it binds and whether 
+it can be undone. 
+
+- **bake-time**, irreversible, reference-based, and changing it is a rebuild hence it names the artifact.
+- **deploy-time**, reversible, the store host which has the same bytes in a different container or access requirement, it never names anything.
+- **open-time**, per-session, requires credentials/authorization. 
+- **read-time**, per-tool, involves dialect variants (`/vsis3/` vs `s3://` vs `https://`). 
+
 
 ## Pipeline
 

@@ -54,6 +54,12 @@
       "store_config": "local_filesystem_store",
       "credential": "LocalFileSystemAccess",
       "note": "machine-bound by construction: baked file:// refs are only valid where the /rdsi mirror exists"
-    }
+    },
+  "s3": {
+  "ref_prefix": "s3://noaa-cdr-sea-surface-temp-optimum-interpolation-pds/data/v2.1/avhrr/",
+  "store_config": "s3_store",
+  "credential": "s3_anonymous",
+  "region": "us-east-1"
+}
   }
 }
