@@ -1,6 +1,6 @@
 # zarr-icechunk-assure
 
-Assurance and illustration for virtualized datacubes: a small
+Assurance and illustration for virtualized datasets: a small
 pipeline that takes a curated file listing to a versioned Icechunk repository,
 stages verified, in R and Python. 
 
