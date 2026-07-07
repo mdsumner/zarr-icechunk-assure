@@ -12,3 +12,8 @@ P <- jsonlite::read_json(file.path(FIXD, "probe.json"), simplifyVector = TRUE)
 skip_if_no_refs <- function() {
   testthat::skip_if_not(dir.exists(REFS), "run `just refs` first")
 }
+
+
+read_zmeta <- function() {
+  jsonlite::read_json(file.path(REFS, ".zmetadata"), simplifyVector = FALSE)$metadata
+}

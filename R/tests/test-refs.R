@@ -11,14 +11,15 @@ test_that("refs carry contract prefix and count", {
 
 test_that("v2 codec chain matches contract", {
   skip_if_no_refs()
-  za <- jsonlite::read_json(file.path(REFS, "sst", ".zarray"), simplifyVector = FALSE)
+  za <- read_zmeta()[["sst/.zarray"]]
   expect_equal(vapply(za$filters, `[[`, "", "id"),
-               vapply(P$array$codecs_v2_filters, `[[`, "", "id"))
+               P$array$codecs_v2_filters[["id"]])
+
   expect_equal(za$fill_value, P$array$fill_value)
 })
 
-test_that("time units defect state is as documented", {
+test_that("time units defect state is fixed #14881", {
   skip_if_no_refs()
-  zat <- jsonlite::read_json(file.path(REFS, "time", ".zattrs"))
-  expect_false("units" %in% names(zat))            # settles the rung-2/rung-4 discrepancy
+  zat <- read_zmeta()[["time/.zattrs"]]
+  expect_true("units" %in% names(zat))
 })
