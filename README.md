@@ -35,7 +35,7 @@ Once we assume that core contract (a generic, managed, and growing store of arra
 byte-refs) the goal here is to project it through different types, which varies by when it binds and whether 
 it can be undone. 
 
-- **bake-time**, irreversible, reference-based, and changing it is a rebuild hence it names the artifact.
+- **bake-time**, irreversible, the reference **flavour** (`https://` / `/my/data/` / `file://` / `s3://`) written into the refs themselves — changing it is a rebuild, hence it names the artifact.
 - **deploy-time**, reversible, the store host which has the same bytes in a different container or access requirement, it never names anything.
 - **open-time**, per-session, requires credentials/authorization. 
 - **read-time**, per-tool, involves dialect variants (`/vsis3/` vs `s3://` vs `https://`). 
