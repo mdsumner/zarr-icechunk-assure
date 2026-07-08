@@ -173,3 +173,26 @@ def test_redirect_to_http_target_is_consumed_by_transport(redirect_host):
     """
     with pytest.raises(ic.IcechunkError, match="must be a redirect"):
         ic.Repository.open(ic.redirect_storage(redirect_host))
+
+
+@pytest.fixture(scope="module")
+def redirect_host_tagged(http_host):
+    """Name service with the scheme-tagged Location that survives the transport."""
+    target = "http+icechunk://" + http_host.removeprefix("http://")
+    handler = type("Handler", (RedirectHandler,), {"repos": {"/oisst": target}})
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    yield f"http://127.0.0.1:{server.server_address[1]}/oisst"
+    server.shutdown(); thread.join(timeout=5)
+
+
+def test_metadata_via_tagged_redirect(redirect_host_tagged):
+    """Full chain: name service -> (http+icechunk:// tag) -> byte host -> repo.
+    Note limitations: resolved backend is read-only + anonymous -- fine here,
+    and virtual-chunk authorization is a separate layer passed at open."""
+    repo = ic.Repository.open(ic.redirect_storage(redirect_host_tagged))
+    for t in P["tags"]:
+        assert repo.lookup_tag(t)
+    g = zarr.open_group(repo.readonly_session("main").store, mode="r")
+    assert list(g["time"][:]) == P["time"]["raw"]
