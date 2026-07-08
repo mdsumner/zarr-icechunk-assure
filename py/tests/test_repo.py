@@ -2,48 +2,56 @@
 Every assertion is a fact from probe.json; no test writes anything.
 Marks: network = fetches virtual chunks from NCEI.
 """
-import json, pathlib, zipfile
+
+import json, pathlib, re, zipfile
 import pytest
 import zarr
 import icechunk as ic
 
-FIX   = pathlib.Path("fixtures/oisst-sample")
-BUILD = pathlib.Path("build/oisst-sample")
+ROOT  = pathlib.Path(__file__).resolve().parents[2]
+FIX   = ROOT / "fixtures" / "oisst-sample"
+BUILD = ROOT / "build" / "oisst-sample"
 P     = json.loads((FIX / "probe.json").read_text())
-CELL  = "https"
-PREFIX = P["cells"][CELL]["ref_prefix"]
-CELLS = ["https", "s3"]          # or: [c for c in P["cells"] if (BUILD / f"repo-{c}").exists()]
 
-def _storage(path):
-    return ic.local_filesystem_storage(str(path))
+CELLS = ["https", "s3"]          # explicit: a missing build FAILS, never silently shrinks
 
 @pytest.fixture(scope="session", params=CELLS)
 def cell(request):
     return request.param
 
+@pytest.fixture(scope="session")
+def cellspec(cell):
+    return P["cells"][cell]
 
 @pytest.fixture(scope="session")
-def repo_path(tmp_path_factory):
-    """Prefer the live build; fall back to unzipping the newest promoted fixture."""
-    live = BUILD / f"repo-{CELL}"
+def repo_path(cell, tmp_path_factory):
+    live = BUILD / f"repo-{cell}"
     if live.exists():
         return live
-    z = sorted(FIX.glob(f"repo-{CELL}-*.zip"))[-1]
-    out = tmp_path_factory.mktemp("repo")
-    with zipfile.ZipFile(z) as f:
+    zips = sorted(FIX.glob(f"repo-{cell}-*.zip"))
+    if not zips:
+        pytest.fail(f"no live build and no promoted zip for cell {cell!r}")
+    out = tmp_path_factory.mktemp(f"repo-{cell}")
+    with zipfile.ZipFile(zips[-1]) as f:
         f.extractall(out)
     return out
 
+CREDS = {
+    "HttpAccess": lambda: ic.credentials.HttpAccess,
+    "LocalFileSystemAccess": lambda: ic.credentials.LocalFileSystemAccess,
+    "s3_anonymous": lambda: ic.s3_anonymous_credentials(),
+}
+
 @pytest.fixture(scope="session")
-def repo_auth(repo_path):
-    return ic.Repository.open(_storage(repo_path),
+def repo_auth(repo_path, cellspec):
+    return ic.Repository.open(
+        ic.local_filesystem_storage(str(repo_path)),
         authorize_virtual_chunk_access=ic.containers_credentials(
-            {PREFIX: getattr(ic.credentials, P["cells"][CELL]["credential"])}))
+            {cellspec["ref_prefix"]: CREDS[cellspec["credential"]]()}))
 
 @pytest.fixture(scope="session")
 def repo_noauth(repo_path):
-    return ic.Repository.open(_storage(repo_path))
-
+    return ic.Repository.open(ic.local_filesystem_storage(str(repo_path)))
 def _group(repo, **kw):
     """Read-only group at a repo reference; defaults to tip of main."""
     if not kw:
@@ -90,7 +98,17 @@ def test_probe_value(repo_auth):
 # ---- the gate ---------------------------------------------------------------
 
 @pytest.mark.network
-def test_unauthorized_read_names_prefix(repo_noauth):
+def test_unauthorized_read_names_prefix(repo_noauth, cellspec):
     sst = _group(repo_noauth)["sst"]
-    with pytest.raises(ic.IcechunkError, match="ncei.noaa.gov"):
+    with pytest.raises(ic.IcechunkError, match=re.escape(cellspec["ref_prefix"])):
         sst[0, 0, P["probe"]["iy_stored"], P["probe"]["ix"]]
+
+@pytest.mark.parametrize("cell", CELLS)
+def test_refs_time_decodes_in_xarray(cell):
+    xr = pytest.importorskip("xarray")
+    refs = BUILD / f"refs-{cell}.zarr"
+    print(refs)
+    if not refs.exists():
+        pytest.fail(f"run `just refs {cell}` first")
+    ds = xr.open_dataset(str(refs), engine="kerchunk")
+    assert str(ds.time.values[0]).startswith("1981-09-01T12")

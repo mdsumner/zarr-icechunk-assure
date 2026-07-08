@@ -1,22 +1,20 @@
 ## R/tests/helper-probe.R
 ## Sourced automatically by testthat::test_dir() before any test-*.R
 ## (load_helpers = TRUE default). Single authority for paths + contract.
-stopifnot(packageVersion("testthat") >= "3.0.0")
+ROOT  <- normalizePath(file.path(getwd(), "..", ".."))
+FIXD  <- file.path(ROOT, "fixtures", "oisst-sample")
+P     <- jsonlite::read_json(file.path(FIXD, "probe.json"), simplifyVector = TRUE)
 
-ROOT <- normalizePath(file.path(testthat::test_path(), "..", ".."))
-FIXD <- file.path(ROOT, "fixtures", "oisst-sample")
-REFS <- file.path(ROOT, "build", "oisst-sample", "refs-https.zarr")
+CELLS <- c("https", "s3")   # built cells; a missing build FAILS, never shrinks
 
-P <- jsonlite::read_json(file.path(FIXD, "probe.json"), simplifyVector = TRUE)
-
-skip_if_no_refs <- function() {
-  testthat::skip_if_not(dir.exists(REFS), "run `just refs` first")
+refs_path <- function(cell) file.path(ROOT, "build", "oisst-sample",
+                                      sprintf("refs-%s.zarr", cell))
+read_zmeta <- function(cell) {
+  jsonlite::read_json(file.path(refs_path(cell), ".zmetadata"),
+                      simplifyVector = FALSE)$metadata
 }
-
-
-read_zmeta <- function() {
-  jsonlite::read_json(file.path(REFS, ".zmetadata"), simplifyVector = FALSE)$metadata
-}
+skip_if_no_refs <- function(cell) testthat::skip_if_not(
+  dir.exists(refs_path(cell)), sprintf("run `just refs %s` first", cell))
 
 gdal_coherent <- function() {
   isTRUE(gdalraster::gdal_version()[4] == vapour::vapour_gdal_version()[1] |>

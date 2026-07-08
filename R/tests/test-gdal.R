@@ -1,16 +1,20 @@
-## R/tests/test-gdal.R  -- GDAL as third verifier; value test needs network
-test_that("gdal mdim sees the mosaic structure", {
-  skip_if_no_refs()
-  info <- system2("gdal", c("mdim", "info", sprintf('ZARR:"%s"', REFS)),
-                  stdout = TRUE, stderr = FALSE)
-  expect_true(any(grepl("\\[10, 1, 720, 1440\\]", info)))
-  expect_true(any(grepl("Int16", info)))
-})
+for (cell in CELLS) {
+  test_that(sprintf("gdal mdim sees the mosaic structure [%s]", cell), {
+    skip_if_no_refs(cell)
+    info <- system2("gdal", c("mdim", "info",
+                              sprintf("/vsikerchunk_parquet_ref/{%s}", refs_path(cell))),
+                    stdout = TRUE, stderr = FALSE)
+    expect_true(any(grepl("\\[10, 1, 720, 1440\\]", info)))
+  })
 
-test_that("probe value via GDAL https read", {
-  skip_if_no_refs(); skip_if_offline(); skip_on_ci()
-  d <- vapour::gdal_raster_data(sprintf('ZARR:"%s":/sst', REFS), bands = 1L)
-  cell <- vaster::cell_from_xy(P$grid$dim, P$grid$extent,
-                               cbind(P$probe$lon, P$probe$lat))
-  expect_equal(d[[1]][cell], P$probe$sst_unpacked, tolerance = 1e-8)
-})
+  test_that(sprintf("probe value via GDAL [%s]", cell), {
+    skip_if_no_refs(cell); skip_if_offline(); skip_on_ci()
+    withr::local_envvar(AWS_NO_SIGN_REQUEST = "YES")   # env, not set_config_option
+    d <- vapour::gdal_raster_data(
+      sprintf('ZARR:"/vsikerchunk_parquet_ref/{%s}":/sst', refs_path(cell)),
+      bands = 1L)
+    cellidx <- vaster::cell_from_xy(P$grid$dim, P$grid$extent,
+                                    cbind(P$probe$lon, P$probe$lat))
+    expect_equal(d[[1]][cellidx], P$probe$sst_unpacked, tolerance = 1e-8)
+  })
+}

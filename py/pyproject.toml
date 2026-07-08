@@ -19,5 +19,8 @@ dev = [
 testpaths = ["tests"]
 addopts = "--strict-markers -p no:cacheprovider"
 markers = [
-    "network: fetches virtual chunks from NCEI",
+    "network: fetches virtual chunks from NCEI or S3",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning:fastparquet",
 ]
