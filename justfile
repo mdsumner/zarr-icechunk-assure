@@ -25,7 +25,12 @@ repo cell="https":
 zip cell="https":
     cd {{BUILD}}/repo-{{cell}} && zip -0 -r "../../../{{FIX}}/repo-{{cell}}-$(date +%F).zip" .
 
-# run both suites (later)
+# offline test suites, both languages
 test:
     Rscript -e 'testthat::test_dir("R/tests")'
-    python3 -m pytest py/tests
+    uv run --project py pytest py/tests -m "not network"
+
+# full suites including remote value reads (NCEI https + anonymous S3)
+test-network:
+    Rscript -e 'testthat::test_dir("R/tests")'
+    uv run --project py pytest py/tests

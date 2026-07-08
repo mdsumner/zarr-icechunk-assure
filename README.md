@@ -131,8 +131,8 @@ just               # list recipes
 just refs s3       # build refs-{cell}.zarr  (needs local OISST mirror; see below)
 just repo s3       # build repo-{cell}      (offline; receipt does one remote read)
 just zip           # promote to dated fixture zip
-just test          # offline test suites, both languages
-just test-network  # full suites including remote value reads
+just test          # offline-safe test suites, both languages (R network probes self-skip when offline)
+just test-network  # full suites including remote value reads (NCEI https + anonymous S3)
 ```
 
 Tests run via `just test`; bare `pytest` from the repo root is unconfigured
@@ -148,8 +148,9 @@ promoted zip -- that asymmetry is by design.
 Two suites, no shared code, one shared contract. Both read `probe.json` and
 assert the same numbers through different stacks:
 
-- **pytest** (`py/tests/`, 19 passed + 1 xfail): icechunk + zarr-python.
-  Parametrized over the built matrix cells. Tags present, shapes, native
+- **pytest** (`py/tests/`): icechunk + zarr-python, parametrized over the
+  built matrix cells; the suite carries one deliberate strict xfail watching
+  the upstream redirect panic. Tags present, shapes, native
   coordinates readable with *no* credentials, tag states differ (defect vs
   repair), v3 codec names, xarray CF decode of the refs (verifier tier),
   probe value via authorized open (marked `network`), the gate (an
@@ -213,8 +214,3 @@ Upstream findings from this fixture so far:
   case.
 - blocklist: scalar-attribute boxing fixed; padding-aware `read_refs()` and
   `access`/`public` argument naming noted for follow-up.
-
-
-## Code of Conduct
-  
-  Please note that the zarr-icechunk-assure project is released with a [Contributor Code of Conduct](https://contributor-covenant.org/version/2/1/CODE_OF_CONDUCT.html). By contributing to this project, you agree to abide by its terms.
