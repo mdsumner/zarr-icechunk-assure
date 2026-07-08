@@ -1,0 +1,127 @@
+"""Deploy-axis test: the same built repo bytes, served over HTTP.
+
+Proves the README Contract's second binding type executable: store host is
+deploy-time and reversible -- nothing is rebuilt, nothing is renamed, only
+the Repository.open line changes. This is the source.coop access pattern
+(v2 fixed-key reads, GET-only, no LIST) reproduced against localhost.
+"""
+import http.server
+import json
+import pathlib
+import socket
+import threading
+
+import pytest
+import zarr
+import icechunk as ic
+
+import os
+
+class RangeHandler(http.server.SimpleHTTPRequestHandler):
+    """SimpleHTTPRequestHandler + single-range GET (RFC 7233, bytes=)
+    -- the minimum a store host needs for icechunk http storage."""
+
+    def send_head(self):
+        self._range = None
+        spec = self.headers.get("Range", "")
+        if spec.startswith("bytes=") and "," not in spec:
+            lo, _, hi = spec[6:].partition("-")
+            try:
+                self._range = (int(lo) if lo else None, int(hi) if hi else None)
+            except ValueError:
+                self._range = None
+        if self._range is None:
+            return super().send_head()
+        path = self.translate_path(self.path)
+        try:
+            f = open(path, "rb")
+        except OSError:
+            self.send_error(404)
+            return None
+        size = os.fstat(f.fileno()).st_size
+        lo, hi = self._range
+        if lo is None:                       # suffix form: bytes=-N
+            lo, hi = max(0, size - hi), size - 1
+        else:
+            hi = size - 1 if hi is None else min(hi, size - 1)
+        if lo > hi or lo >= size:
+            self.send_error(416)
+            f.close()
+            return None
+        self.send_response(206)
+        self.send_header("Content-Type", self.guess_type(path))
+        self.send_header("Accept-Ranges", "bytes")
+        self.send_header("Content-Range", f"bytes {lo}-{hi}/{size}")
+        self.send_header("Content-Length", str(hi - lo + 1))
+        self.end_headers()
+        f.seek(lo)
+        self._remaining = hi - lo + 1
+        return f
+
+    def copyfile(self, source, outputfile):
+        if self._range is None:
+            return super().copyfile(source, outputfile)
+        n = self._remaining
+        while n > 0:
+            buf = source.read(min(65536, n))
+            if not buf:
+                break
+            outputfile.write(buf)
+            n -= len(buf)
+
+ROOT  = pathlib.Path(__file__).resolve().parents[2]
+FIX   = ROOT / "fixtures" / "oisst-sample"
+BUILD = ROOT / "build" / "oisst-sample"
+P     = json.loads((FIX / "probe.json").read_text())
+
+CELL = "https"          # one cell suffices: the axis under test is host, not flavor
+
+
+@pytest.fixture(scope="module")
+def http_host():
+    """Serve build/oisst-sample over HTTP on an OS-assigned port."""
+    repo_dir = BUILD / f"repo-{CELL}"
+    if not repo_dir.exists():
+        pytest.fail(f"run `just repo {CELL}` first")
+
+    handler = lambda *a, **kw: RangeHandler(*a, directory=str(BUILD), **kw)
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    port = server.server_address[1]                      # port 0 -> OS assigned
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+
+    # readiness: the socket is bound before serve_forever, but poll once anyway
+    with socket.create_connection(("127.0.0.1", port), timeout=5):
+        pass
+
+    yield f"http://127.0.0.1:{port}/repo-{CELL}"
+
+    server.shutdown()
+    thread.join(timeout=5)
+
+
+@pytest.fixture(scope="module")
+def repo_over_http(http_host):
+    spec = P["cells"][CELL]
+    return ic.Repository.open(
+        ic.http_storage(http_host),
+        authorize_virtual_chunk_access=ic.containers_credentials(
+            {spec["ref_prefix"]: ic.credentials.HttpAccess}))
+
+
+def test_metadata_over_http(repo_over_http):
+    """Repo metadata + native chunks via GET-only http storage, no LIST."""
+    tags = [t for t in P["tags"]]
+    for t in tags:
+        assert repo_over_http.lookup_tag(t)
+    g = zarr.open_group(repo_over_http.readonly_session("main").store, mode="r")
+    assert list(g["time"][:]) == P["time"]["raw"]        # native chunk fetch over http
+
+
+@pytest.mark.network
+def test_probe_over_http(repo_over_http):
+    """Virtual chunk read: store host localhost, byte refs still NCEI."""
+    g = zarr.open_group(repo_over_http.readonly_session("main").store, mode="r")
+    raw = int(g["sst"][P["probe"]["time_index"], 0,
+                       P["probe"]["iy_stored"], P["probe"]["ix"]])
+    assert raw == P["probe"]["sst_packed"]
