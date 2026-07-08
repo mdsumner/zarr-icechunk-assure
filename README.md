@@ -39,6 +39,7 @@ it can be undone.
 - **deploy-time**, reversible, the store host which has the same bytes in a different container or access requirement, it never names anything.
 - **open-time**, per-session, requires credentials/authorization.
 - **read-time**, per-tool, involves dialect variants (`/vsis3/` vs `s3://` vs `https://`), and per-tool configuration surfaces -- the same authorization may need to arrive as an env var for one reader and an API call for another.
+- **run-time**, locational: where the reader executes. Valid credentials may carry their own locational scope -- NASA Earthdata's direct-S3 STS role (s3-same-region-access-role) embeds an explicit deny for out-of-region requests, so authorization at open-time is necessary but not sufficient. Measured against PACE OCI from Hobart; the identical open succeeds on in-region compute.
 
 ## Pipeline
 
@@ -86,7 +87,7 @@ the core Icechunk design this repo exercises. Cells are declared once in
 |---------|--------------------------------|--------------------------|---------------------------|---------|
 | `https` | `https://www.ncei.noaa.gov/...`  | `http_store`             | `HttpAccess`              | built   |
 | `s3`    | `s3://noaa-cdr-sea-surface-temp-optimum-interpolation-pds/...` | `s3_store(region=...)` | `s3_anonymous_credentials()` | built   |
-| `file`  | `file:///rdsi/...` (machine-bound by construction) | `local_filesystem_store` | `LocalFileSystemAccess`   | planned |
+| `file`  | `file:///rdsi/...` (machine-bound by construction) | `local_filesystem_store` | `LocalFileSystemAccess`   | built (fully offline end-to-end; never promoted)" |
 
 The flavor is baked into the refs at **write time** (step 2); the Icechunk
 container and credentials must match it at **open time**. Naming the cell in

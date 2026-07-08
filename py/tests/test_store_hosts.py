@@ -187,6 +187,16 @@ def redirect_host_tagged(http_host):
     server.shutdown(); thread.join(timeout=5)
 
 
+@pytest.mark.xfail(
+    strict=True,
+    raises=BaseException,   # PanicException derives from BaseException, not
+                            # Exception, and pyo3_runtime is not a public
+                            # import surface -- match the base class and let
+                            # the reason string carry the specificity
+    reason="icechunk redirect_storage panics stripping http+icechunk:// "
+           "scheme tag (redirect.rs:218, url::set_scheme special/non-special "
+           "restriction; gist shared 2026-07-08, issue TBD)",
+)
 def test_metadata_via_tagged_redirect(redirect_host_tagged):
     """Full chain: name service -> (http+icechunk:// tag) -> byte host -> repo.
     Note limitations: resolved backend is read-only + anonymous -- fine here,

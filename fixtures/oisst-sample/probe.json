@@ -60,6 +60,12 @@
   "store_config": "s3_store",
   "credential": "s3_anonymous",
   "region": "us-east-1"
+},
+"file": {
+  "ref_prefix": "file:///rdsi/PUBLIC/raad/data/www.ncei.noaa.gov/data/sea-surface-temperature-optimum-interpolation/v2.1/access/avhrr/",
+  "store_config": "local_filesystem_store",
+  "credential": "LocalFileSystemAccess",
+  "note": "machine-bound by construction: baked file:// refs are only valid where the /rdsi mirror exists; never promoted to a zip"
 }
   }
 }
