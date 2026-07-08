@@ -125,3 +125,51 @@ def test_probe_over_http(repo_over_http):
     raw = int(g["sst"][P["probe"]["time_index"], 0,
                        P["probe"]["iy_stored"], P["probe"]["ix"]])
     assert raw == P["probe"]["sst_packed"]
+
+
+class RedirectHandler(http.server.BaseHTTPRequestHandler):
+    """Verbatim shape of the icechunk docs example: name service, not byte host.
+    One GET, one 302, no Range, no bytes."""
+    repos: dict[str, str] = {}          # set by the fixture
+
+    def do_GET(self):
+        location = self.repos.get(self.path)
+        if location is None:
+            self.send_response(404)
+            self.end_headers()
+            return
+        self.send_response(302)
+        self.send_header("Location", location)
+        self.end_headers()
+
+    def log_message(self, fmt, *args):
+        pass                            # one-line server, keep the pytest output clean
+
+
+@pytest.fixture(scope="module")
+def redirect_host(http_host):
+    """Name service in front of the byte host: /oisst -> RangeHandler URL."""
+    handler = type("Handler", (RedirectHandler,), {"repos": {"/oisst": http_host}})
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    port = server.server_address[1]
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    yield f"http://127.0.0.1:{port}/oisst"
+    server.shutdown()
+    thread.join(timeout=5)
+
+
+def test_redirect_to_http_target_is_consumed_by_transport(redirect_host):
+    """redirect_storage requires a non-http(s) store URI in the Location
+    (s3://, gs://). An http target is transparently followed by the HTTP
+    client layer, so icechunk receives the terminal response and never
+    sees the redirect -- hence 'must be a redirect'.
+
+    The complementary case (s3:// Location surfaces the redirect intact:
+    icechunk parses it, constructs the S3 store, and fails with 'the
+    repository doesn't exist' at the target) was confirmed interactively
+    2026-07-08 against a throwaway 302 server; not suite-tested because
+    it exits to AWS to prove a mechanism this test already pins locally.
+    """
+    with pytest.raises(ic.IcechunkError, match="must be a redirect"):
+        ic.Repository.open(ic.redirect_storage(redirect_host))
